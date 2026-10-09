@@ -21,7 +21,14 @@ function normalize(s){
   s.recDismissed=s.recDismissed||[];
   s.emailLog=s.emailLog||{};
   s.goals=s.goals||[];
+  s.balances=s.balances||{}; // from the bank's daily balance emails: {last4: {amount, at:'2026-10-09T06:24'}}
   return s;
+}
+// keeps the newest balance for each account; returns how many changed
+function applyBalances(list){
+  let n=0;
+  for(const b of list||[]){const cur=S.balances[b.acct];if(b.acct&&(!cur||b.at>cur.at)){S.balances[b.acct]={amount:b.amount,at:b.at};n++;}}
+  return n;
 }
 
 const dn=s=>{const[y,m,d]=s.split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5);};
@@ -239,6 +246,8 @@ function mergeStates(a,b){ // a = this device, b = saved copy; this device's set
   const gs=new Set();out.goals=[];
   for(const g of [...a.goals,...b.goals]){if(del.has(g.id)||gs.has(g.id))continue;gs.add(g.id);out.goals.push(g);}
   out.bank={lastSync:Math.max(a.bank.lastSync||0,b.bank.lastSync||0)};
+  out.balances={...(b.balances||{})};
+  for(const [k,v] of Object.entries(a.balances||{}))if(!out.balances[k]||v.at>out.balances[k].at)out.balances[k]=v;
   return normalize(out);
 }
 

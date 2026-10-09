@@ -643,6 +643,7 @@ function home(){
     </div>
     ${S.settings.payMode==='fixed'?`<div class="row small" style="margin-top:12px"><span class="muted">Paycheck this period</span><input id="ovr" type="number" step="0.01" inputmode="decimal" style="width:120px;padding:6px 10px" value="${p.paycheck}"></div>`:''}
   </div>
+  ${isCur?balanceCard():''}
   ${donutCard(p)}
   ${limitsCard(p)}
   ${p.bills.length?`<div class="card"><div class="card-h"><h2>Recurring this period</h2><button class="link" onclick="go('bills')">Manage</button></div>
@@ -650,6 +651,21 @@ function home(){
     <p class="tiny muted" style="margin:8px 0 0">Set aside from your paycheck, not counted in your spending money.</p></div>`:''}
   <div class="card"><div class="card-h"><h2>Recent</h2><button class="link" onclick="go('tx')">See all</button></div>
     <div class="list">${recent.map(t=>txRow(t,false)).join('')||'<p class="small muted">No transactions yet. Tap + to add one.</p>'}</div></div>`;
+}
+// Real balances from the bank's daily "Available Balance" emails. Just what's in the bank; the budget doesn't use them.
+const SHOW_BALANCES=false;
+function balanceCard(){
+  const pay=S.settings.payAcct,list=Object.entries(S.balances||{});
+  if(!SHOW_BALANCES||!list.length)return '';
+  list.sort((x,y)=>(x[0]===pay)-(y[0]===pay)||acctLabel(x[0]).localeCompare(acctLabel(y[0]))); // spending account first
+  const latest=list.map(x=>x[1].at).sort().pop();
+  const when=at=>{const [d,t]=at.split('T'),[h,mi]=t.split(':').map(Number);
+    return (d===todayISO()?'today':d===ds(dn(todayISO())-1)?'yesterday':pretty(d))+', '+(h%12||12)+':'+String(mi).padStart(2,'0')+(h<12?' AM':' PM');};
+  // you keep spending money in Checking and move it over from Savings as needed
+  const low=pay&&list.find(([a,b])=>a!==pay&&b.amount<25);
+  return `<div class="card"><div class="card-h"><h2>In the bank</h2><span class="tiny muted">as of ${when(latest)}</span></div>
+    <div class="chips" style="margin-top:0;grid-template-columns:repeat(${Math.min(list.length,3)},1fr)">${list.map(([a,b])=>`<div class="chip"><div class="l">${esc(acctLabel(a))}</div><div class="v ${b.amount<0?'bad':''}">${$m(b.amount)}</div>${b.at.slice(0,10)!==latest.slice(0,10)?`<div class="tiny muted">${when(b.at)}</div>`:''}</div>`).join('')}</div>
+    ${low?`<p class="small" style="margin:10px 0 0;color:var(--warn);display:flex;gap:6px;align-items:center">${ICON.alert} ${esc(acctLabel(low[0]))} is low. Move money over from ${esc(acctLabel(pay))} before your next purchase.</p>`:''}</div>`;
 }
 function limitsCard(p){
   const ls=limitStatus(p);
@@ -1110,10 +1126,10 @@ async function callServer(fn,...args){
 async function syncBank(quiet){
   if(!connected()||syncing)return;
   syncing=true;syncMsg='Checking your bank alerts…';if(tab==='settings')render();
-  let added=0;
+  let added=0,newBal=0;
   try{
     const res=await callServer('getAlertTransactions',S.bank.lastSync*1000,S.settings.alertFrom);
-    added=importAlerts(res.transactions);
+    added=importAlerts(res.transactions);newBal=applyBalances(res.balances);
     unreadAlerts=res.unread||[];
     S.bank.lastSync=Math.floor(Date.now()/1000);save();
     syncMsg=`Checked ${new Date().toLocaleString()}: ${added} new transaction${added===1?'':'s'}.`;
@@ -1121,7 +1137,7 @@ async function syncBank(quiet){
   }catch(e){syncMsg='⚠ '+e.message;if(!quiet)toast(e.message);}
   syncing=false;
   // don't wipe a half-typed form unless there's something new to show
-  if(!document.getElementById('sheetRoot').innerHTML&&(tab==='settings'||added))render();
+  if(!document.getElementById('sheetRoot').innerHTML&&(tab==='settings'||added||newBal))render();
 }
 function bankCard(){
   if(!connected()) return `<div class="card"><div class="card-h"><h2>Bank sync</h2></div>

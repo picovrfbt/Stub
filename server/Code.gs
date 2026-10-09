@@ -13,6 +13,9 @@ const APP_URL = 'https://picovrfbt.github.io/Stub/';
 // Security emails (verify, login, statements, settings changes) are left out.
 const ALERT_SUBJECTS = 'subject:(transaction OR transfer OR received OR approved OR withdrawal OR deposit OR purchase OR debit OR credit OR payment OR alert) -subject:(verify OR verification OR login OR "sign in" OR statement OR preference OR password)';
 
+// Daily balance emails aren't read in this version.
+const BALANCE_SEARCH = '';
+
 const APP_NAME = 'Stub';
 const APP_ICON = APP_URL + 'icon-192.png';
 
@@ -98,7 +101,29 @@ function getAlertTransactions_(sinceMs, senders) {
       else unread.push({ date: emailDate, subject: subject, snippet: body.replace(/\s+/g, ' ').slice(0, 300) });
     }
   }
-  return { transactions: transactions, unread: unread.slice(0, 20) };
+  return { transactions: transactions, unread: unread.slice(0, 20), balances: getBalances_() };
+}
+
+// e.g. "Account ending in: *1234 … Available balance as of 06:24 AM on 10/09/2026: $100.00"
+function getBalances_() {
+  if (!BALANCE_SEARCH) return [];
+  const out = [];
+  for (const thread of GmailApp.search(BALANCE_SEARCH, 0, 20))
+    for (const m of thread.getMessages()) {
+      const b = parseBalance(m.getPlainBody() || '');
+      if (b) out.push(b);
+    }
+  return out;
+}
+function parseBalance(body) {
+  body = body.split(/View balance details|Get help & support|Service Email:/i)[0];
+  const acct = body.match(/ending in:?\s*[*x•]*\s*(\d{4})/i);
+  const when = body.match(/as of\s+(\d{1,2}):(\d{2})\s*([AP]M)\s+on\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+  const amt = body.match(/as of[^$]*\$\s?(-?[\d,]+\.\d{2})/i);
+  if (!acct || !when || !amt) return null;
+  let h = +when[1] % 12; if (/pm/i.test(when[3])) h += 12;
+  const at = when[6] + '-' + ('0' + when[4]).slice(-2) + '-' + ('0' + when[5]).slice(-2) + 'T' + ('0' + h).slice(-2) + ':' + when[2];
+  return { acct: acct[1], amount: parseFloat(amt[1].replace(/,/g, '')), at: at };
 }
 
 // ----- Shared budget data, so every device sees the same thing -----
@@ -185,7 +210,8 @@ function dailyJob() {
   if (!st.data) return;
   S = normalize(JSON.parse(st.data));
   resetCaches();
-  const added = importAlerts(getAlertTransactions_(S.bank.lastSync * 1000, S.settings.alertFrom).transactions);
+  const res = getAlertTransactions_(S.bank.lastSync * 1000, S.settings.alertFrom);
+  const added = importAlerts(res.transactions) + applyBalances(res.balances);
   const mails = dueEmails_();
   if (added || mails.length) {
     S.bank.lastSync = Math.floor(Date.now() / 1000);
