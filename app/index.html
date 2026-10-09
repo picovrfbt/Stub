@@ -1433,7 +1433,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();
 // Inside the Android app the phone's status bar is hidden, so show our own time and battery
 (()=>{
   let apk=false;
-  try{apk=new URLSearchParams(location.search).has('fullscreen');}catch(e){}
+  try{if(document.referrer.startsWith('android-app://io.github.picovrfbt.stub'))sessionStorage.setItem('stub-apk','1');apk=!!sessionStorage.getItem('stub-apk');}catch(e){}
   if(!apk&&!matchMedia('(display-mode: fullscreen)').matches)return;
   document.documentElement.classList.add('apk');
   const clk=document.getElementById('clk'),bat=document.getElementById('bat');

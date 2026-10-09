@@ -3,3 +3,6 @@ server/Core.gs
 server/.clasp.json
 node_modules/
 .DS_Store
+android/
+desktop/node_modules/
+desktop/dist/

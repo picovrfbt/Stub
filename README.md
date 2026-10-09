@@ -6,7 +6,7 @@
 A free, open-source paycheck budget that runs entirely in <i>your own</i> Google account.<br>
 No bank logins, no subscriptions, no company server.</p>
 
-<p align="center"><a href="https://picovrfbt.github.io/Stub/"><b>Open Stub</b></a> · <a href="#set-up">Set up (about 5 minutes)</a> · <a href="#faq">FAQ</a></p>
+<p align="center"><a href="https://picovrfbt.github.io/Stub/"><b>Open Stub</b></a> · <a href="#download">Android & Windows apps</a> · <a href="#set-up">Set up (about 5 minutes)</a> · <a href="#faq">FAQ</a></p>
 
 ---
 
@@ -45,6 +45,18 @@ The app at `picovrfbt.github.io/Stub` is a static page; it has no database and n
 
 ---
 
+## Download
+
+Use Stub in any browser at **[picovrfbt.github.io/Stub](https://picovrfbt.github.io/Stub/)**, or get an app from the **[latest release](https://github.com/picovrfbt/Stub/releases/latest)**:
+
+| | File | Notes |
+|---|---|---|
+| **Android** | `Stub-<version>.apk` | Full screen: no status bar or navigation buttons; Stub shows its own time and battery. Open the file on your phone and allow *Install unknown apps* when asked. Requires Chrome. |
+| **Windows 10/11** | `Stub-Setup-<version>.exe` | Its own window, Start-menu and desktop shortcuts. Windows may show *"Windows protected your PC"* because the installer isn't code-signed: click **More info → Run anyway**. |
+| **iPhone / Mac / Linux** | – | Open the web app and use **Add to Home Screen** (iPhone) or your browser's **Install** button. |
+
+All of them run the same app and update automatically; only the window around it is different. You still need your own server (below) the first time.
+
 ## Set up
 
 You need a Google account with Gmail, and a bank that can email you transaction alerts. Most US banks and credit unions can.
@@ -66,7 +78,7 @@ You need a Google account with Gmail, and a bank that can email you transaction 
 
 ### 2. Open the app
 
-1. Open **[picovrfbt.github.io/Stub](https://picovrfbt.github.io/Stub/)**.
+1. Open **[picovrfbt.github.io/Stub](https://picovrfbt.github.io/Stub/)** (or the [Android / Windows app](#download)).
 2. Paste your **server address** (the `/exec` URL) and your **key**, then tap **Continue**.
 3. Install it. On Android/Chrome, tap **Install** (or ⋮ → *Add to Home screen*). On iPhone/Safari, tap **Share → Add to Home Screen**. On a computer, click the install icon in the address bar.
 
@@ -140,6 +152,9 @@ To show store logos, store names are looked up through:
 
 Only the store name or website is sent, never amounts or your account details. If a logo isn't found, Stub falls back to a category icon.
 
+**Are the Android and Windows apps safe to install?**
+They're thin windows around the same web app, built from the [`desktop/`](desktop/) code and the Bubblewrap setup described below. They can't see anything the web app can't. They aren't in the Play Store or code-signed by Microsoft, which is why your phone or PC asks for confirmation.
+
 **Does it cost anything?**
 No. Google Apps Script and GitHub Pages are free for personal use.
 
@@ -170,8 +185,14 @@ Then run `setup` once in the editor (`clasp open`) and deploy as described above
 ```
 app/              the app (static PWA): index.html, core.js (shared logic), sw.js, manifest, icons
 server/           the Apps Script server: Code.gs + appsscript.json (Core = app/core.js)
+desktop/          the Windows app (Electron): opens the app in its own window
 .github/workflows pages.yml publishes app/ to GitHub Pages
 ```
+
+### Building the apps
+
+- **Windows:** `cd desktop && npm install && npm run dist` → `desktop/dist/Stub-Setup-<version>.exe`. Try it without installing: `npm start`.
+- **Android:** a [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) Trusted Web Activity for `https://picovrfbt.github.io/Stub/` (package `io.github.picovrfbt.stub`), in immersive full-screen mode that also covers the camera cutout. Android trusts it via [`picovrfbt.github.io/.well-known/assetlinks.json`](https://picovrfbt.github.io/.well-known/assetlinks.json). Forks hosting their own copy need their own package name, signing key and assetlinks file.
 
 ## Contributing
 
