@@ -16,7 +16,7 @@ Every payday you start fresh. Stub takes your paycheck, sets aside your **recurr
 
 - **Left to spend:** one big number, plus a per-day amount and a pace line. It shows whether you're spending faster than the days are going by.
 - **Purchases show up on their own.** Stub reads the alert emails your bank already sends you in Gmail, every morning and whenever you open the app. You don't have to share a bank password and it doesn't use a paid bank-data service.
-- **Payday detection:** each period runs from one real paycheck to the next. Fixed every-2-weeks schedules work too.
+- **Any pay schedule:** weekly, every 2 weeks, twice a month or monthly. Stub can also detect your real paydays, so each period runs from one paycheck to the next.
 - **Recurring bills:** they're set aside up front, so they don't eat your spending money. Stub also suggests ones it spots in your history.
 - **Savings goal or spending limit:** pick one per paycheck. You can also add **category limits** with warnings.
 - **Where it went:** a spending donut by category, with store logos.
@@ -93,8 +93,15 @@ You need a Google account with Gmail, and a bank that can email you transaction 
 ### 4. Tell Stub about your paycheck
 
 **Settings → Paycheck & goal**:
+- **How often you're paid:** pick one of
+  - weekly,
+  - every 2 weeks,
+  - twice a month (1st & 15th, or 15th & last day),
+  - monthly.
+
+  Each budget period runs from one payday to the next.
 - **Detect my paydays (recommended):** enter the last 4 digits of the account your paycheck lands in, the smallest amount a paycheck could be, and optionally a word from your employer's name as it appears in the deposit. Each period then runs from one real payday to the next.
-- **Fixed paycheck:** your take-home amount and a recent payday. It repeats every 2 weeks.
+- **Fixed paycheck:** your take-home amount and a recent payday. It repeats on your schedule.
 - Then choose a **Savings goal** (save at least $X per paycheck) or a **Spending limit** (spend no more than $X).
 
 ### 5. Add your other devices

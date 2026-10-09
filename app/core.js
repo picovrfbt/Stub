@@ -9,7 +9,7 @@ function todayISO(){const t=new Date();return t.getFullYear()+'-'+String(t.getMo
 
 function normalize(s){
   s=s||{};
-  s.settings=Object.assign({payAmount:0,firstPayday:todayISO(),savingsGoal:0,goalType:'save',payMode:'fixed',payAcct:'',payMin:100,payKey:'',acctNames:{},alertFrom:[],catLimits:{},email:{weekly:false,payday:false,limits:false}},s.settings||{});
+  s.settings=Object.assign({payAmount:0,firstPayday:todayISO(),savingsGoal:0,goalType:'save',payMode:'fixed',payFreq:'biweekly',payAcct:'',payMin:100,payKey:'',acctNames:{},alertFrom:[],catLimits:{},email:{weekly:false,payday:false,limits:false}},s.settings||{});
   s.tx=s.tx||[]; s.overrides=s.overrides||{}; s.rules=s.rules||{};
   s.categories=s.categories||DEFAULT_CATS.slice();
   for(const c of ['Transfer','Recurring'])if(!s.categories.includes(c)) s.categories.push(c);
@@ -42,7 +42,7 @@ const merchantKey=d=>String(d).toLowerCase().replace(/[0-9#*]+/g,' ').replace(/[
 
 // ---------- pay periods ----------
 // Auto mode: each period runs from one real payday (an income transaction in "Paycheck")
-// to the day before the next. Before the first / after the last known payday, assume every 14 days.
+// to the day before the next. Before the first / after the last known payday, follow your pay schedule.
 let PD; // cached payday list, cleared by resetCaches()
 function paydays(){
   if(PD!==undefined)return PD;
@@ -54,17 +54,47 @@ function paydays(){
   }
   return PD;
 }
+// How often you're paid (Settings → Paycheck & goal). Twice-a-month schedules follow the calendar.
+const PAY_FREQ={weekly:'Weekly',biweekly:'Every 2 weeks',semi_1_15:'Twice a month (1st & 15th)',semi_15_last:'Twice a month (15th & last day)',monthly:'Monthly'};
+const PAY_DAYS={weekly:7,biweekly:14,semi_1_15:15.22,semi_15_last:15.22,monthly:30.44};
+const payFreq=()=>PAY_FREQ[S.settings.payFreq]?S.settings.payFreq:'biweekly';
+const lastDay=(y,m)=>new Date(Date.UTC(y,m+1,0)).getUTCDate();
+// twice-a-month paydays, numbered from January 2000: k=0 → first payday of Jan 2000, k=1 → second, …
+function semiDate(k,f){
+  const m=Math.floor(k/2),h=k-2*m,y=2000+Math.floor(m/12),mo=((m%12)+12)%12;
+  const day=f==='semi_1_15'?(h?15:1):(h?lastDay(y,mo):15);
+  return y+'-'+String(mo+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function semiIndex(iso,f){ // the twice-a-month period containing this date
+  const [y,mo,d]=iso.split('-').map(Number),m=(y-2000)*12+mo-1;
+  if(f==='semi_1_15')return m*2+(d>=15?1:0);
+  return d<15?m*2-1:d<lastDay(y,mo-1)?m*2:m*2+1;
+}
+// the payday k paychecks after `anchor` (k can be negative)
+function payStep(anchor,k){
+  const f=payFreq();
+  if(f==='monthly')return addMonth(anchor,k,+anchor.slice(8));
+  if(f.startsWith('semi'))return k?semiDate(semiIndex(anchor,f)+k,f):anchor;
+  return ds(dn(anchor)+PAY_DAYS[f]*k);
+}
+// how many paychecks after `anchor` the period containing `iso` is
+function payCount(anchor,iso){
+  let i=Math.floor((dn(iso)-dn(anchor))/PAY_DAYS[payFreq()]);
+  while(payStep(anchor,i+1)<=iso)i++;
+  while(i>-100000&&payStep(anchor,i)>iso)i--;
+  return i;
+}
 function pStart(i){
-  const B=paydays();if(!B)return ds(dn(S.settings.firstPayday)+14*i);
+  const B=paydays();if(!B)return payStep(S.settings.firstPayday,i);
   const L=B.length-1;
-  return i<0?ds(dn(B[0])+14*i):i>L?ds(dn(B[L])+14*(i-L)):B[i];
+  return i<0?payStep(B[0],i):i>L?payStep(B[L],i-L):B[i];
 }
 const pEnd=i=>ds(dn(pStart(i+1))-1);
 function pIndex(iso){
-  const B=paydays();if(!B)return Math.floor((dn(iso)-dn(S.settings.firstPayday))/14);
+  const B=paydays();if(!B)return payCount(S.settings.firstPayday,iso);
   const L=B.length-1;
-  if(iso<B[0])return Math.floor((dn(iso)-dn(B[0]))/14);
-  if(iso>=B[L])return L+Math.floor((dn(iso)-dn(B[L]))/14);
+  if(iso<B[0])return payCount(B[0],iso);
+  if(iso>=B[L])return L+payCount(B[L],iso);
   let i=0;while(B[i+1]<=iso)i++;return i;
 }
 // Is this deposit a paycheck? (into your paycheck account, or looks like payroll, and big enough)

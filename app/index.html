@@ -1115,7 +1115,7 @@ function emailCard(){
   return `<div class="card"><div class="card-h"><h2>Email summaries</h2></div>
     <p class="small t2" style="margin-top:0">Sent from your own Gmail to yourself. All off until you turn them on.</p>
     ${opt('weekly','Weekly summary','Sunday morning · 1 email a week')}
-    ${opt('payday','Payday summary','The morning after your paycheck arrives · 1 every 2 weeks')}
+    ${opt('payday','Payday summary','The morning after your paycheck arrives · 1 per paycheck')}
     ${opt('limits','Category limit warnings','When a category goes over its limit · at most 1 per category per paycheck')}
     ${connected()?`<button class="btn soft" id="emTest" style="margin-top:4px">Send me a test email</button>`:''}
     <p class="tiny muted" style="margin:10px 0 0">Sent around 8 AM. New bank alerts are also picked up every morning, even if you don't open the app.</p></div>`;
@@ -1212,9 +1212,10 @@ function payCard(){
   const s=S.settings;
   return `<div class="card"><div class="card-h"><h2>Paycheck & goal</h2><span class="tiny muted">Saves as you change it</span></div>
     <label class="f"><span>How income is counted</span><select id="sMode">
-      <option value="fixed" ${s.payMode==='fixed'?'selected':''}>Fixed paycheck amount every 2 weeks</option>
+      <option value="fixed" ${s.payMode==='fixed'?'selected':''}>Fixed paycheck amount each payday</option>
       <option value="auto" ${s.payMode==='auto'?'selected':''}>Detect my paydays from deposits (recommended)</option>
-      <option value="tx" ${s.payMode==='tx'?'selected':''}>Use deposits I import or add, every 2 weeks from a set payday</option></select></label>
+      <option value="tx" ${s.payMode==='tx'?'selected':''}>Use deposits I import or add, from a set payday</option></select></label>
+    <label class="f"><span>How often you're paid</span><select id="sFreq">${Object.entries(PAY_FREQ).map(([k,l])=>`<option value="${k}" ${payFreq()===k?'selected':''}>${l}</option>`).join('')}</select></label>
     <div id="autoBox" class="${s.payMode==='auto'?'':'hidden'}">
       <label class="f"><span>Account your paycheck goes into (last 4 digits)</span><input id="sAcct" inputmode="numeric" maxlength="4" placeholder="e.g. 5678" value="${esc(s.payAcct)}"></label>
       <div class="grid2"><label class="f"><span>Smallest paycheck</span><input id="sMin" type="number" step="1" inputmode="decimal" value="${s.payMin}"></label>
@@ -1252,7 +1253,7 @@ function setPages(){
   const ago=S.bank.lastSync?(()=>{const m=Math.round((Date.now()/1000-S.bank.lastSync)/60);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':Math.round(m/1440)+' d ago';})():'Not yet';
   return [
     ['Help',[['help','How Stub works','#3d9bff','Guide & setup',helpCard]]],
-    ['Budget',[['pay','Paycheck & goal','#2a78d6',`${modeTxt} · ${goalTxt}`,payCard],
+    ['Budget',[['pay','Paycheck & goal','#2a78d6',`${{weekly:'Weekly',biweekly:'Every 2 weeks',semi_1_15:'Twice a month',semi_15_last:'Twice a month',monthly:'Monthly'}[payFreq()]} · ${goalTxt}`,payCard],
       ['limits','Category limits','#eb6834',nLim?`${nLim} set`:'None',limitsSetCard],
       ['bank','Bank sync','#1baf7a',connected()?(S.settings.alertFrom.length?ago:'Add your bank'):'Off',bankCard],
       ['email','Email summaries','#d55181',ems.length?ems.join(', '):'Off',emailCard]]],
@@ -1303,7 +1304,7 @@ function helpCard(){
     <button class="btn soft" id="replayIntro" style="width:100%">Show the intro again</button></div>
   <div class="card"><div class="card-h"><h2>Setting up</h2></div>
     ${sec('0. Your server',`Stub has no company server: your data lives in a small Google Apps Script in <b>your own</b> Google account. The <a href="https://github.com/picovrfbt/Stub#set-up" target="_blank" rel="noopener">README</a> walks you through creating it (about 5 minutes).`,true)}
-    ${sec('1. Your paycheck',`Go to <b>Settings → Paycheck & goal</b>. Choose <b>Detect my paydays</b> and enter the last 4 digits of the account your paycheck goes into. Stub then starts each period on your real payday. If you're paid the same every time, <b>Fixed paycheck</b> works too.`)}
+    ${sec('1. Your paycheck',`Go to <b>Settings → Paycheck & goal</b>. Choose <b>Detect my paydays</b> and enter the last 4 digits of the account your paycheck goes into. Stub then starts each period on your real payday. Set <b>How often you're paid</b> (weekly, every 2 weeks, twice a month or monthly). If you're paid the same every time, <b>Fixed paycheck</b> works too.`)}
     ${sec('2. Your goal',`Pick <b>Savings goal</b> (save at least this much each paycheck) or <b>Spending limit</b> (spend no more than this). Recurring bills never count against a spending limit.`)}
     ${sec('3. Bank alerts',`In your bank's app or website, find <b>Alerts</b> (or Notifications) and turn on <b>email</b> alerts for <b>card purchases</b>, <b>deposits</b> and <b>transfers</b> on each account. Then in <b>Settings → Bank sync</b>, add the address the alerts come from. Tip: a Gmail filter that skips the inbox keeps them out of your way; Stub still reads them.`)}
     ${sec('4. Recurring bills',`On the <b>Recurring</b> tab, tap <b>+ Add</b> for things like subscriptions or payments. They're set aside from each paycheck. Stub also suggests ones it spots in your history.`)}
@@ -1370,10 +1371,10 @@ bind.settings=()=>{
     document.getElementById('fixedBox').classList.toggle('hidden',e.target.value==='auto');
   }));
   // paycheck & goal save on every change (no Save button)
-  ['sMode','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
+  ['sMode','sFreq','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
     const day=document.getElementById('sDay').value||todayISO();
     const acct=document.getElementById('sAcct').value.replace(/\D/g,'');
-    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
+    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:document.getElementById('sFreq').value,payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
       payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim(),
       savingsGoal:+document.getElementById('sGoal').value||0,goalType:document.getElementById('sGType').value});
     S.settingsAt=Date.now();let n=0;
