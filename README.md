@@ -16,7 +16,7 @@ Every payday you start fresh. Stub takes your paycheck, sets aside your **recurr
 
 - **Left to spend:** one big number, plus a per-day amount and a pace line. It shows whether you're spending faster than the days are going by.
 - **Purchases show up on their own.** Stub reads the alert emails your bank already sends you in Gmail, every morning and whenever you open the app. You don't have to share a bank password and it doesn't use a paid bank-data service.
-- **Any pay schedule:** weekly, every 2 weeks, twice a month on your own days, or monthly, starting from your real payday. Stub can also detect your real paydays, so each period runs from one paycheck to the next.
+- **Any pay schedule:** weekly, every 2 weeks, twice a month on your own days, monthly or every 2 months, starting from your real payday. Stub can also detect your real paydays, so each period runs from one paycheck to the next.
 - **Recurring bills:** they're set aside up front, so they don't eat your spending money. Stub also suggests ones it spots in your history.
 - **Savings goal or spending limit:** pick one per paycheck. You can also add **category limits** with warnings.
 - **Where it went:** a spending donut by category, with store logos.
@@ -93,11 +93,12 @@ You need a Google account with Gmail, and a bank that can email you transaction 
 ### 4. Tell Stub about your paycheck
 
 **Settings → Paycheck & goal**:
-- **How often you're paid:** pick one of
+- **How often you're paid:** slide to one of
   - weekly,
   - every 2 weeks,
   - twice a month (on any two days you choose, like the 1st & 15th or the 5th & 20th),
-  - monthly.
+  - every month,
+  - every 2 months.
 
   Then enter **your most recent payday**, or the two days for twice a month. Each budget period runs from one payday to the next.
 - **Got paid?** Tap **+**, choose **Received**, and leave **This is my paycheck** on. That starts a new pay period on that date, and your next paydays follow from it. It's handy when your payday moves or you change jobs.

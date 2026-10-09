@@ -57,8 +57,9 @@ function paydays(){
 // How often you're paid (Settings → Paycheck & goal). Twice-a-month schedules follow the calendar.
 // Weekly / every 2 weeks / monthly repeat from your most recent payday (S.settings.firstPayday,
 // or the last detected paycheck); twice a month uses the two days of the month you pick (31 = last day).
-const PAY_FREQ={weekly:'Weekly',biweekly:'Every 2 weeks',semimonthly:'Twice a month',monthly:'Monthly'};
-const PAY_DAYS={weekly:7,biweekly:14,semimonthly:15.22,monthly:30.44};
+// (in order from shortest to longest; the Settings slider uses this order)
+const PAY_FREQ={weekly:'Every week',biweekly:'Every 2 weeks',semimonthly:'Twice a month',monthly:'Every month',bimonthly:'Every 2 months'};
+const PAY_DAYS={weekly:7,biweekly:14,semimonthly:15.22,monthly:30.44,bimonthly:60.88};
 function payFreq(){const f=S.settings.payFreq;return /^semi/.test(f||'')?'semimonthly':PAY_FREQ[f]?f:'biweekly';}
 function semiDays(){
   const f=S.settings.payFreq;if(f==='semi_15_last')return[15,31];if(f==='semi_1_15')return[1,15];
@@ -81,7 +82,7 @@ function semiIndex(iso){ // the twice-a-month period containing this date
 // the payday k paychecks after `anchor` (k can be negative)
 function payStep(anchor,k){
   const f=payFreq();
-  if(f==='monthly')return addMonth(anchor,k,+anchor.slice(8));
+  if(f==='monthly'||f==='bimonthly')return addMonth(anchor,f==='bimonthly'?2*k:k,+anchor.slice(8));
   if(f==='semimonthly')return k?semiDate(semiIndex(anchor)+k):anchor;
   return ds(dn(anchor)+PAY_DAYS[f]*k);
 }

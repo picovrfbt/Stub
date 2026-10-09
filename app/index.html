@@ -243,6 +243,19 @@ html.apk .sbar{display:flex;position:absolute;top:0;left:0;right:0;height:max(28
 .fab{background:var(--tabc,var(--accent));transition:background .3s}
 .sheet{position:relative}
 .sheet-x{position:absolute;top:10px;right:10px}
+/* pay schedule slider (green: filled up to the thumb) */
+.freq>span{display:block;font-size:13px;color:var(--text2);margin-bottom:10px;font-weight:550}
+.freq>span b{color:var(--good)}
+.freq input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:8px;padding:0;border:0;border-radius:4px;margin:6px 0;cursor:pointer;
+  background:linear-gradient(to right,var(--good) var(--p),var(--track) var(--p))}
+.freq input[type=range]:focus{outline:none}
+.freq input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--good);border:4px solid var(--card);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.freq input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--good);border:4px solid var(--card);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.freq input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--good);outline-offset:2px}
+.freq-ticks{display:flex;justify-content:space-between;margin-top:4px}
+.freq-ticks span{font-size:11.5px;color:var(--muted);width:20%;text-align:center}
+.freq-ticks span:first-child{text-align:left}.freq-ticks span:last-child{text-align:right}
+.freq-ticks span.on{color:var(--good);font-weight:700}
 /* first-run intro + help */
 .intro{text-align:center;padding:8px 4px 0}
 .intro h2{font-size:21px;margin:14px 0 8px}
@@ -1229,7 +1242,11 @@ function payCard(){
       <option value="fixed" ${s.payMode==='fixed'?'selected':''}>Fixed paycheck amount each payday</option>
       <option value="auto" ${s.payMode==='auto'?'selected':''}>Detect my paydays from deposits (recommended)</option>
       <option value="tx" ${s.payMode==='tx'?'selected':''}>Use deposits I import or add, from a set payday</option></select></label>
-    <div class="grid2"><label class="f"><span>How often you're paid</span><select id="sFreq">${Object.entries(PAY_FREQ).map(([k,l])=>`<option value="${k}" ${payFreq()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    ${(()=>{const keys=Object.keys(PAY_FREQ),i=keys.indexOf(payFreq());
+      return `<div class="f freq"><span>How often you're paid: <b id="freqLbl">${PAY_FREQ[keys[i]]}</b></span>
+        <input id="sFreq" type="range" min="0" max="${keys.length-1}" step="1" value="${i}" style="--p:${i/(keys.length-1)*100}%" aria-label="How often you're paid">
+        <div class="freq-ticks">${['1 wk','2 wks','2× mo','1 mo','2 mo'].map((t,j)=>`<span class="${j===i?'on':''}">${t}</span>`).join('')}</div></div>`;})()}
+    <div>
       <label class="f ${payFreq()==='semimonthly'?'hidden':''}" id="dayBox"><span>Your most recent payday</span><input id="sDay" type="date" value="${s.firstPayday}"></label>
       <div class="f ${payFreq()==='semimonthly'?'':'hidden'}" id="semiBox"><span style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;font-weight:550">Paid on these days</span>
         <div class="row" style="flex-wrap:nowrap;gap:6px">${semiDays().map((d,i)=>`<select id="sSemi${i}" style="flex:1;padding:11px 6px">${Array.from({length:31},(_,j)=>`<option value="${j+1}" ${d===j+1?'selected':''}>${j===30?'Last day':ordinal(j+1)}</option>`).join('')}</select>`).join('<span class="muted">&</span>')}</div></div></div>
@@ -1321,7 +1338,7 @@ function helpCard(){
     <button class="btn soft" id="replayIntro" style="width:100%">Show the intro again</button></div>
   <div class="card"><div class="card-h"><h2>Setting up</h2></div>
     ${sec('0. Your server',`Stub has no company server: your data lives in a small Google Apps Script in <b>your own</b> Google account. The <a href="https://github.com/picovrfbt/Stub#set-up" target="_blank" rel="noopener">README</a> walks you through creating it (about 5 minutes).`,true)}
-    ${sec('1. Your paycheck',`Go to <b>Settings → Paycheck & goal</b>. Choose <b>Detect my paydays</b> and enter the last 4 digits of the account your paycheck goes into. Stub then starts each period on your real payday. Set <b>How often you're paid</b> (weekly, every 2 weeks, twice a month or monthly). If you're paid the same every time, <b>Fixed paycheck</b> works too.`)}
+    ${sec('1. Your paycheck',`Go to <b>Settings → Paycheck & goal</b>. Choose <b>Detect my paydays</b> and enter the last 4 digits of the account your paycheck goes into. Stub then starts each period on your real payday. Set <b>How often you're paid</b> (every week, every 2 weeks, twice a month, every month or every 2 months). If you're paid the same every time, <b>Fixed paycheck</b> works too.`)}
     ${sec('2. Your goal',`Pick <b>Savings goal</b> (save at least this much each paycheck) or <b>Spending limit</b> (spend no more than this). Recurring bills never count against a spending limit.`)}
     ${sec('3. Bank alerts',`In your bank's app or website, find <b>Alerts</b> (or Notifications) and turn on <b>email</b> alerts for <b>card purchases</b>, <b>deposits</b> and <b>transfers</b> on each account. Then in <b>Settings → Bank sync</b>, add the address the alerts come from. Tip: a Gmail filter that skips the inbox keeps them out of your way; Stub still reads them.`)}
     ${sec('4. Recurring bills',`On the <b>Recurring</b> tab, tap <b>+ Add</b> for things like subscriptions or payments. They're set aside from each paycheck. Stub also suggests ones it spots in your history.`)}
@@ -1388,10 +1405,14 @@ bind.settings=()=>{
     document.getElementById('fixedBox').classList.toggle('hidden',e.target.value==='auto');
   }));
   // paycheck & goal save on every change (no Save button)
+  // the pay slider shows its choice while you drag, and saves when you let go
+  on('sFreq',r=>r.addEventListener('input',()=>{const keys=Object.keys(PAY_FREQ),n=keys.length-1;
+    r.style.setProperty('--p',r.value/n*100+'%');document.getElementById('freqLbl').textContent=PAY_FREQ[keys[+r.value]];
+    document.querySelectorAll('.freq-ticks span').forEach((s,j)=>s.classList.toggle('on',j===+r.value));}));
   ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
     const day=document.getElementById('sDay').value||todayISO();
     const acct=document.getElementById('sAcct').value.replace(/\D/g,'');
-    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:document.getElementById('sFreq').value,payDays:[+document.getElementById('sSemi0').value,+document.getElementById('sSemi1').value],payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
+    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:Object.keys(PAY_FREQ)[+document.getElementById('sFreq').value]||'biweekly',payDays:[+document.getElementById('sSemi0').value,+document.getElementById('sSemi1').value],payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
       payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim(),
       savingsGoal:+document.getElementById('sGoal').value||0,goalType:document.getElementById('sGType').value});
     S.settingsAt=Date.now();let n=0;
