@@ -86,9 +86,22 @@ You need a Google account with Gmail, and a bank that can email you transaction 
 
 1. In your bank's app or website, find **Alerts** (sometimes called *Notifications*). Turn on **email** alerts for **card purchases / transactions**, **deposits** and **transfers**, for each account you want to track. Set the minimum amount to $0 or $0.01 if your bank asks for one.
 2. Wait for one alert to arrive, open it in Gmail, and note the **From** address, e.g. `alerts@mybank.com`.
-3. In Stub, go to **Settings → Bank sync** and **add that address**. You can enter the whole domain (`mybank.com`) instead. Stub immediately looks back 90 days.
+3. In Stub, go to **Settings → Bank sync** and **add that address**, or tap your bank under **Quick add**. You can enter the whole domain (`mybank.com`) instead. Stub immediately looks back 90 days.
+4. Optional: open **Test an alert**, paste one alert's subject and text, and Stub shows what it read.
 
 > **Tip:** to keep alerts out of your inbox, make a Gmail filter: search `from:alerts@mybank.com`, then choose *Create filter → Skip the Inbox* and *Apply the label "Bank alerts"*. Stub still reads them.
+
+#### Supported banks
+
+Banks don't publish the format of their alert emails, so support grows from real (redacted) examples.
+
+| Bank | Quick add | Status |
+|---|---|---|
+| **Regions** | ✓ | Tested with real alerts: card purchases, transfers, deposits |
+| **USAA** | ✓ | Sender built in. Alert wording not yet confirmed. Please try **Test an alert** and [send an example](https://github.com/picovrfbt/Stub/issues/new?template=bank-alert.yml) |
+| **Any other bank** | add the sender yourself | Usually works. Stub looks for the common pieces (`$12.34`, `at STORE`, `ending in 1234`) |
+
+If Stub can't read your bank's alerts, use the **[My bank's alerts](https://github.com/picovrfbt/Stub/issues/new?template=bank-alert.yml)** form. One redacted example per kind of alert is enough to add your bank.
 
 ### 4. Tell Stub about your paycheck
 

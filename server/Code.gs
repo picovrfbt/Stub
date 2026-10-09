@@ -34,6 +34,9 @@ const API = {
   getAlertTransactions: (...a) => getAlertTransactions_(...a),
   setupEmails: (...a) => setupEmails_(...a),
   sendTestEmail: (...a) => sendTestEmail_(...a),
+  // Settings → Bank sync → Test an alert: shows what the reader gets from a pasted alert (nothing is saved)
+  testAlert: (subject, body) => parseAlert(String(subject || '').slice(0, 300), String(body || '').slice(0, 5000),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')),
 };
 function doPost(e) {
   let out;

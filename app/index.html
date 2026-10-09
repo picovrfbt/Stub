@@ -1139,6 +1139,8 @@ async function syncBank(quiet){
   // don't wipe a half-typed form unless there's something new to show
   if(!document.getElementById('sheetRoot').innerHTML&&(tab==='settings'||added||newBal))render();
 }
+// one tap adds a known bank's alert sender (Gmail matches every address at that domain)
+const BANK_PRESETS=[['Regions','alert.regions.com'],['USAA','usaa.com']];
 function bankCard(){
   if(!connected()) return `<div class="card"><div class="card-h"><h2>Bank sync</h2></div>
     <p class="small t2">Not connected on this device. Enter your key to turn on sync.</p></div>`;
@@ -1147,6 +1149,12 @@ function bankCard(){
     <p class="small t2">Reads your bank's alert emails in your Gmail every morning and whenever you open the app. Alerts come from:</p>
     <div class="row" style="gap:6px;margin-bottom:8px">${S.settings.alertFrom.map((a,k)=>`<span class="badge" style="font-size:13px;padding:5px 4px 5px 10px;display:inline-flex;align-items:center;gap:2px">${esc(a)}<button class="icon-btn" style="width:24px;height:24px" data-rmfrom="${k}" aria-label="Remove ${esc(a)}">×</button></span>`).join('')||'<span class="small bad">No sender added yet. Add the address your bank’s alerts come from.</span>'}</div>
     <div class="row" style="margin-bottom:12px"><input id="newFrom" class="grow" placeholder="e.g. alerts@mybank.com or mybank.com" autocomplete="off" inputmode="email"><button class="btn soft" id="addFrom">Add</button></div>
+    <div class="row" style="gap:6px;margin:-4px 0 12px"><span class="tiny muted">Quick add:</span>${BANK_PRESETS.map(([n,d])=>`<button class="btn soft" style="min-height:32px;padding:6px 12px;font-size:13px" data-preset="${d}" ${S.settings.alertFrom.includes(d)?'disabled':''}>${n}</button>`).join('')}</div>
+    <details style="margin:0 0 12px"><summary class="small"><b>Test an alert</b>: see what Stub reads from one</summary>
+      <p class="tiny muted">Paste one alert email's subject and text. Your own server reads it; nothing is saved.</p>
+      <input id="tSubj" placeholder="Subject" autocomplete="off" style="width:100%;margin-bottom:6px">
+      <textarea id="tBody" rows="5" placeholder="Email text" style="width:100%;background:var(--page);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;font-size:14px"></textarea>
+      <button class="btn soft" id="tRun" style="margin-top:6px">Test it</button><div id="tOut" class="small" style="margin-top:8px"></div></details>
     <div class="row"><button class="btn primary" id="bSync" ${syncing?'disabled':''}>${syncing?'Checking…':'Check now'}</button><button class="btn soft" id="bRescan" ${syncing?'disabled':''}>Re-read last 90 days</button></div>
     ${unreadAlerts.length?`<details style="margin-top:12px"><summary class="small">${unreadAlerts.length} bank email${unreadAlerts.length===1?'':'s'} I couldn't read as a transaction</summary>
       ${unreadAlerts.map(u=>`<p class="small"><b>${esc(u.date)} · ${esc(u.subject)}</b><br><span class="muted">${esc(u.snippet)}</span></p>`).join('')}
@@ -1188,6 +1196,17 @@ function bindBank(){
     S.bank.lastSync=0;syncBank();
   };
   document.querySelectorAll('[data-rmfrom]').forEach(b=>b.onclick=()=>{S.settings.alertFrom.splice(+b.dataset.rmfrom,1);S.settingsAt=Date.now();save();render();});
+  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const v=b.dataset.preset;
+    if(!S.settings.alertFrom.includes(v))S.settings.alertFrom.push(v);S.settingsAt=Date.now();save();render();S.bank.lastSync=0;syncBank();});
+  const tr=document.getElementById('tRun');
+  if(tr)tr.onclick=async()=>{
+    const out=document.getElementById('tOut');out.textContent='Reading…';
+    try{
+      const t=await callServer('testAlert',document.getElementById('tSubj').value,document.getElementById('tBody').value);
+      out.innerHTML=t?`<span class="good">✓ Read it.</span> A <b>${t.type==='income'?'deposit':'purchase'}</b> of <b>${$m(t.amount)}</b> · ${esc(nice(t.desc)||'no description')} · ${t.acct?'account ••'+esc(t.acct):'no account number'} · ${pretty(t.date)}`
+        :`<span class="bad">Stub couldn’t read this as a transaction.</span> Please send it with the <a href="https://github.com/picovrfbt/Stub/issues/new?template=bank-alert.yml" target="_blank" rel="noopener">My bank’s alerts</a> form (remove personal details first).`;
+    }catch(e){out.textContent='Could not test: '+e.message;}
+  };
 }
 function autoSync(){if(connected()&&Date.now()/1000-S.bank.lastSync>30*60)syncBank(true);}
 

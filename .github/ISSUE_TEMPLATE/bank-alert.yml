@@ -1,0 +1,59 @@
+name: My bank's alerts
+description: Help Stub read your bank's alert emails (one redacted example is enough)
+title: "Bank alerts: <bank name>"
+labels: ["bank support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! One example per kind of alert (purchase, deposit, transfer) lets Stub learn your bank's wording.
+        **Before pasting, replace personal details:** your name → `NAME`, account digits → `1234`, store names are fine,
+        and change the amounts to something made up (keep the same format, like `$12.34`).
+  - type: input
+    id: bank
+    attributes:
+      label: Bank
+      placeholder: e.g. USAA
+    validations:
+      required: true
+  - type: input
+    id: sender
+    attributes:
+      label: Sender address
+      description: The "From" address of the alert (this isn't personal).
+      placeholder: e.g. alerts@mybank.com
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of alert
+      options: [Card purchase, Deposit, Transfer, Withdrawal / ATM, Other]
+    validations:
+      required: true
+  - type: input
+    id: subject
+    attributes:
+      label: Email subject
+    validations:
+      required: true
+  - type: textarea
+    id: body
+    attributes:
+      label: Email text (redacted)
+      description: Everything above the legal footer is enough.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What "Test an alert" showed (optional)
+      description: Settings → Bank sync → Test an alert
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed my name, account numbers and real amounts
+          required: true
