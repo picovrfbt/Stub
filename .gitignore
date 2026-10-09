@@ -1,0 +1,5 @@
+# clasp (developers): a copy of app/core.js and your own project ID
+server/Core.gs
+server/.clasp.json
+node_modules/
+.DS_Store

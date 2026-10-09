@@ -1,0 +1,20 @@
+{
+  "name": "Stub",
+  "short_name": "Stub",
+  "description": "Budget one paycheck at a time",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Add purchase", "short_name": "Add", "url": "./?add=1", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
