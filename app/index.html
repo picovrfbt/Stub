@@ -359,6 +359,23 @@ input.switch:checked{box-shadow:0 0 12px -2px var(--glow)}
 .tabbar{background:color-mix(in srgb,var(--card) 92%,var(--accent))}
 .toast{background:color-mix(in srgb,var(--accent) 22%,var(--text));color:var(--card);box-shadow:0 10px 30px -10px var(--glow)}
 .dots i.on{background:var(--accent);box-shadow:0 0 10px var(--glow)}
+/* ===== surfaces, not outlines: cards are raised panels with a lit top edge ===== */
+:root{--edge:rgba(255,255,255,.75);--lift:0 1px 2px rgba(20,40,25,.06),0 10px 28px -14px rgba(20,40,25,.22);--field:color-mix(in srgb,var(--accent) 5%,var(--track))}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--edge:rgba(255,255,255,.06);--lift:0 1px 2px rgba(0,0,0,.4),0 14px 32px -16px rgba(0,0,0,.7)}}
+:root[data-theme="dark"]{--edge:rgba(255,255,255,.06);--lift:0 1px 2px rgba(0,0,0,.4),0 14px 32px -16px rgba(0,0,0,.7)}
+.card,.set-group{border:0;border-radius:16px;box-shadow:inset 0 1px 0 var(--edge),var(--lift)}
+.card:has(>.period){box-shadow:inset 0 1px 0 var(--edge),var(--lift),0 18px 44px -26px var(--glow);border:0}
+.card .period{border-radius:16px 16px 0 0}
+.card{margin-bottom:14px}
+/* rows inside a card: soft dividers instead of hard lines */
+.item,.swipe,.trow,.set-row,details.help{border-color:color-mix(in srgb,var(--line) 55%,transparent)}
+/* fields and small blocks are filled, not outlined; the outline only appears while typing */
+input,select,textarea{background:var(--field);border-color:transparent}
+.item .meta select{background:var(--field);border:0}
+.seg{background:var(--field)}
+.chip+.chip{border-left-color:color-mix(in srgb,var(--line) 70%,transparent)}
+.sheet{box-shadow:0 -12px 40px -12px rgba(0,0,0,.35),inset 0 1px 0 var(--edge)}
+.tabbar{border-top:0;box-shadow:0 -1px 0 color-mix(in srgb,var(--line) 60%,transparent),0 -10px 30px -18px rgba(0,0,0,.4)}
 @media (prefers-reduced-motion:reduce){.btn,.fab{transition:none}.btn:active:not(:disabled),.fab:active{transform:none}}
 </style>
 </head>
