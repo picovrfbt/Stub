@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stub</title>
 <script>try{const t=localStorage.getItem("stub-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -285,6 +287,36 @@ details.help>div{padding:0 0 12px}
 .ptr.spin svg{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){#app.enter{animation:none}.stackbar>i{transition:none}}
+
+/* ===== pay-stub finish: paper and ink, hairline rules, tabulated money ===== */
+body{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;caret-color:var(--accent)}
+::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+html{scrollbar-color:var(--line) transparent}
+.card{border-radius:10px;box-shadow:none;border-color:var(--line);padding:16px 16px 18px}
+.card-h h2{font-size:15px;font-weight:600;letter-spacing:-.005em}
+.top h1{font-weight:700;letter-spacing:-.02em}
+/* money reads like a printed stub */
+.hero-v,.chip .v,.item .amt,.cat-row .amt,.donut-c b,.bar-h b,td.n{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hero-v{font-size:42px;font-weight:600;letter-spacing:-.04em}
+.chip .v{font-size:15px;font-weight:600}
+.item .amt{font-weight:500}
+/* the stub's tear line between the summary and its totals */
+.chips{border-top:1.5px dashed var(--line);padding-top:14px;margin-top:16px}
+.chip{background:transparent;padding:2px 0;border-radius:0}
+.chip+.chip{border-left:1px solid var(--line);padding-left:12px}
+.btn{border-radius:8px}
+.btn.primary{box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+input,select{border-radius:8px}
+.seg,.seg button{border-radius:8px}
+.badge{border-radius:4px}
+.set-group{border-radius:10px;box-shadow:none;border-color:var(--line)}
+.set-ic{border-radius:7px}
+.sheet{border-radius:16px 16px 0 0}
+@media (min-width:600px){.sheet{border-radius:14px}}
+.fab{border-radius:16px;box-shadow:0 6px 16px -4px rgba(0,0,0,.35)}
+.logo{border-radius:10px}
+.tabbar{border-top-color:var(--line)}
 </style>
 </head>
 <body>
