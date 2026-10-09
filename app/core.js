@@ -9,7 +9,7 @@ function todayISO(){const t=new Date();return t.getFullYear()+'-'+String(t.getMo
 
 function normalize(s){
   s=s||{};
-  s.settings=Object.assign({payAmount:0,firstPayday:todayISO(),savingsGoal:0,goalType:'save',payMode:'fixed',payFreq:'biweekly',payAcct:'',payMin:100,payKey:'',acctNames:{},alertFrom:[],catLimits:{},email:{weekly:false,payday:false,limits:false}},s.settings||{});
+  s.settings=Object.assign({payAmount:0,firstPayday:todayISO(),savingsGoal:0,goalType:'save',payMode:'fixed',payFreq:'biweekly',payDays:[1,15],payAcct:'',payMin:100,payKey:'',acctNames:{},alertFrom:[],catLimits:{},email:{weekly:false,payday:false,limits:false}},s.settings||{});
   s.tx=s.tx||[]; s.overrides=s.overrides||{}; s.rules=s.rules||{};
   s.categories=s.categories||DEFAULT_CATS.slice();
   for(const c of ['Transfer','Recurring'])if(!s.categories.includes(c)) s.categories.push(c);
@@ -55,26 +55,34 @@ function paydays(){
   return PD;
 }
 // How often you're paid (Settings → Paycheck & goal). Twice-a-month schedules follow the calendar.
-const PAY_FREQ={weekly:'Weekly',biweekly:'Every 2 weeks',semi_1_15:'Twice a month (1st & 15th)',semi_15_last:'Twice a month (15th & last day)',monthly:'Monthly'};
-const PAY_DAYS={weekly:7,biweekly:14,semi_1_15:15.22,semi_15_last:15.22,monthly:30.44};
-const payFreq=()=>PAY_FREQ[S.settings.payFreq]?S.settings.payFreq:'biweekly';
+// Weekly / every 2 weeks / monthly repeat from your most recent payday (S.settings.firstPayday,
+// or the last detected paycheck); twice a month uses the two days of the month you pick (31 = last day).
+const PAY_FREQ={weekly:'Weekly',biweekly:'Every 2 weeks',semimonthly:'Twice a month',monthly:'Monthly'};
+const PAY_DAYS={weekly:7,biweekly:14,semimonthly:15.22,monthly:30.44};
+function payFreq(){const f=S.settings.payFreq;return /^semi/.test(f||'')?'semimonthly':PAY_FREQ[f]?f:'biweekly';}
+function semiDays(){
+  const f=S.settings.payFreq;if(f==='semi_15_last')return[15,31];if(f==='semi_1_15')return[1,15];
+  const d=[...new Set((S.settings.payDays||[]).map(x=>Math.min(31,Math.max(1,Math.round(+x)||0))))].filter(Boolean).sort((a,b)=>a-b);
+  if(d.length<2)return[1,15];
+  // two paydays less than a week apart can't both start a period: space them about half a month apart
+  return d[1]-d[0]>=7?d.slice(0,2):d[0]<=16?[d[0],d[0]+15]:[d[0]-15,d[0]];
+}
 const lastDay=(y,m)=>new Date(Date.UTC(y,m+1,0)).getUTCDate();
 // twice-a-month paydays, numbered from January 2000: k=0 → first payday of Jan 2000, k=1 → second, …
-function semiDate(k,f){
-  const m=Math.floor(k/2),h=k-2*m,y=2000+Math.floor(m/12),mo=((m%12)+12)%12;
-  const day=f==='semi_1_15'?(h?15:1):(h?lastDay(y,mo):15);
+function semiDate(k){
+  const [a,b]=semiDays(),m=Math.floor(k/2),h=k-2*m,y=2000+Math.floor(m/12),mo=((m%12)+12)%12;
+  const day=Math.min(h?b:a,lastDay(y,mo));
   return y+'-'+String(mo+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
 }
-function semiIndex(iso,f){ // the twice-a-month period containing this date
-  const [y,mo,d]=iso.split('-').map(Number),m=(y-2000)*12+mo-1;
-  if(f==='semi_1_15')return m*2+(d>=15?1:0);
-  return d<15?m*2-1:d<lastDay(y,mo-1)?m*2:m*2+1;
+function semiIndex(iso){ // the twice-a-month period containing this date
+  const [a,b]=semiDays(),[y,mo,d]=iso.split('-').map(Number),m=(y-2000)*12+mo-1,L=lastDay(y,mo-1);
+  return d<Math.min(a,L)?m*2-1:d<Math.min(b,L)?m*2:m*2+1;
 }
 // the payday k paychecks after `anchor` (k can be negative)
 function payStep(anchor,k){
   const f=payFreq();
   if(f==='monthly')return addMonth(anchor,k,+anchor.slice(8));
-  if(f.startsWith('semi'))return k?semiDate(semiIndex(anchor,f)+k,f):anchor;
+  if(f==='semimonthly')return k?semiDate(semiIndex(anchor)+k):anchor;
   return ds(dn(anchor)+PAY_DAYS[f]*k);
 }
 // how many paychecks after `anchor` the period containing `iso` is

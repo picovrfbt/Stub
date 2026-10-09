@@ -582,6 +582,7 @@ function render(){
   document.getElementById('fab').classList.toggle('hidden',!(tab==='home'||tab==='tx'));
   bind[tab]&&bind[tab]();
 }
+const ordinal=n=>n+([,'st','nd','rd'][n%100>>3^1&&n%10]||'th');
 const catOptions=sel=>S.categories.map(c=>`<option ${c===sel?'selected':''}>${esc(c)}</option>`).join('');
 const bind={};
 
@@ -717,18 +718,31 @@ document.getElementById('fab').onclick=()=>{
     <div class="grid2"><label class="f"><span>Amount</span><input id="aAmt" type="number" step="0.01" inputmode="decimal" placeholder="0.00"></label>
     <label class="f"><span>Date</span><input id="aDate" type="date" value="${isCur?todayISO():p.start}"></label></div>
     <label class="f"><span>Category</span><select id="aCat">${catOptions('Uncategorized')}</select></label>
+    <label class="row hidden" id="aPayRow" style="margin:12px 0 4px;gap:12px;cursor:pointer;flex-wrap:nowrap"><span class="grow"><b class="small">This is my paycheck</b><br><span class="tiny muted">Starts a new pay period on this date, and your next paydays follow from it</span></span><input type="checkbox" class="switch" id="aPay"></label>
     <div class="row" style="margin-top:14px"><button class="btn soft grow" onclick="closeSheet()">Cancel</button><button class="btn primary grow" id="aAdd">Add</button></div>`,()=>{
-    const desc=document.getElementById('aDesc'),cat=document.getElementById('aCat');
+    const desc=document.getElementById('aDesc'),cat=document.getElementById('aCat'),pay=document.getElementById('aPay');
     const setType=t=>{type=t;document.getElementById('tExp').classList.toggle('on',t==='expense');document.getElementById('tInc').classList.toggle('on',t==='income');
-      if(t==='income'&&cat.value==='Uncategorized')cat.value='Paycheck';if(t==='expense'&&cat.value==='Paycheck')cat.value='Uncategorized';};
+      if(t==='income'&&cat.value==='Uncategorized')cat.value='Paycheck';if(t==='expense'&&cat.value==='Paycheck')cat.value='Uncategorized';
+      document.getElementById('aPayRow').classList.toggle('hidden',t!=='income');pay.checked=t==='income'&&cat.value==='Paycheck';};
+    // the switch and the Paycheck category go together
+    pay.onchange=()=>{cat.value=pay.checked?'Paycheck':(cat.value==='Paycheck'?'Other Income':cat.value);};
+    cat.addEventListener('change',()=>{pay.checked=type==='income'&&cat.value==='Paycheck';});
     document.getElementById('tExp').onclick=()=>setType('expense');document.getElementById('tInc').onclick=()=>setType('income');
     desc.oninput=()=>{const r=S.rules[merchantKey(desc.value)];if(r)cat.value=r;};
     desc.focus();
     document.getElementById('aAdd').onclick=()=>{
       const amt=Math.abs(parseFloat(document.getElementById('aAmt').value)),date=document.getElementById('aDate').value;
       if(!amt||!date){toast('Need an amount and date');return;}
-      S.tx.push({id:uid(),date,desc:desc.value.trim()||(type==='income'?'Income':'Spending'),amount:amt,type,cat:cat.value});
-      save();closeSheet();render();toast('Added');
+      const isPay=type==='income'&&pay.checked;
+      S.tx.push({id:uid(),date,desc:desc.value.trim()||(isPay?'Paycheck':type==='income'?'Income':'Spending'),amount:amt,type,cat:isPay?'Paycheck':cat.value});
+      if(isPay){
+        // a newer payday re-anchors your schedule; with a fixed paycheck, this one's amount counts for its period
+        if(date>=S.settings.firstPayday){S.settings.firstPayday=date;S.settingsAt=Date.now();}
+        resetCaches();
+        if(S.settings.payMode==='fixed')S.overrides[pStart(pIndex(date))]=amt;
+        viewIdx=pIndex(todayISO());
+      }
+      save();closeSheet();render();toast(isPay?`Payday added: new pay period from ${pretty(date)}`:'Added');
     };
   });
 };
@@ -1215,16 +1229,19 @@ function payCard(){
       <option value="fixed" ${s.payMode==='fixed'?'selected':''}>Fixed paycheck amount each payday</option>
       <option value="auto" ${s.payMode==='auto'?'selected':''}>Detect my paydays from deposits (recommended)</option>
       <option value="tx" ${s.payMode==='tx'?'selected':''}>Use deposits I import or add, from a set payday</option></select></label>
-    <label class="f"><span>How often you're paid</span><select id="sFreq">${Object.entries(PAY_FREQ).map(([k,l])=>`<option value="${k}" ${payFreq()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    <div class="grid2"><label class="f"><span>How often you're paid</span><select id="sFreq">${Object.entries(PAY_FREQ).map(([k,l])=>`<option value="${k}" ${payFreq()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      <label class="f ${payFreq()==='semimonthly'?'hidden':''}" id="dayBox"><span>Your most recent payday</span><input id="sDay" type="date" value="${s.firstPayday}"></label>
+      <div class="f ${payFreq()==='semimonthly'?'':'hidden'}" id="semiBox"><span style="display:block;font-size:13px;color:var(--text2);margin-bottom:4px;font-weight:550">Paid on these days</span>
+        <div class="row" style="flex-wrap:nowrap;gap:6px">${semiDays().map((d,i)=>`<select id="sSemi${i}" style="flex:1;padding:11px 6px">${Array.from({length:31},(_,j)=>`<option value="${j+1}" ${d===j+1?'selected':''}>${j===30?'Last day':ordinal(j+1)}</option>`).join('')}</select>`).join('<span class="muted">&</span>')}</div></div></div>
+    <p class="tiny muted" style="margin-top:0">${payFreq()==='semimonthly'?'Each month, on these two days. A payday that falls on a short month moves to its last day.':'Your pay periods repeat from this date. Got paid today? Tap <b>+</b>, choose <b>Received</b> and turn on <b>This is my paycheck</b>.'}</p>
     <div id="autoBox" class="${s.payMode==='auto'?'':'hidden'}">
       <label class="f"><span>Account your paycheck goes into (last 4 digits)</span><input id="sAcct" inputmode="numeric" maxlength="4" placeholder="e.g. 5678" value="${esc(s.payAcct)}"></label>
       <div class="grid2"><label class="f"><span>Smallest paycheck</span><input id="sMin" type="number" step="1" inputmode="decimal" value="${s.payMin}"></label>
       <label class="f"><span>Employer word (optional)</span><input id="sKey" placeholder="e.g. ACME" value="${esc(s.payKey)}"></label></div>
       <p class="tiny muted" style="margin-top:0">Each period runs from one real payday to the next. You can also set any deposit's category to Paycheck yourself.</p>
     </div>
-    <div id="fixedBox" class="${s.payMode==='auto'?'hidden':''}"><div class="grid2">
-      <label class="f"><span>Take-home pay</span><input id="sPay" type="number" step="0.01" inputmode="decimal" value="${s.payAmount}"></label>
-      <label class="f"><span>A recent payday</span><input id="sDay" type="date" value="${s.firstPayday}"></label></div></div>
+    <div id="fixedBox" class="${s.payMode==='auto'?'hidden':''}">
+      <label class="f"><span>Take-home pay</span><input id="sPay" type="number" step="0.01" inputmode="decimal" value="${s.payAmount}"></label></div>
     <div class="grid2"><label class="f"><span>Goal type</span><select id="sGType">
       <option value="save" ${s.goalType!=='spend'?'selected':''}>Savings goal</option>
       <option value="spend" ${s.goalType==='spend'?'selected':''}>Spending limit</option></select></label>
@@ -1253,7 +1270,7 @@ function setPages(){
   const ago=S.bank.lastSync?(()=>{const m=Math.round((Date.now()/1000-S.bank.lastSync)/60);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':Math.round(m/1440)+' d ago';})():'Not yet';
   return [
     ['Help',[['help','How Stub works','#3d9bff','Guide & setup',helpCard]]],
-    ['Budget',[['pay','Paycheck & goal','#2a78d6',`${{weekly:'Weekly',biweekly:'Every 2 weeks',semi_1_15:'Twice a month',semi_15_last:'Twice a month',monthly:'Monthly'}[payFreq()]} · ${goalTxt}`,payCard],
+    ['Budget',[['pay','Paycheck & goal','#2a78d6',`${PAY_FREQ[payFreq()]} · ${goalTxt}`,payCard],
       ['limits','Category limits','#eb6834',nLim?`${nLim} set`:'None',limitsSetCard],
       ['bank','Bank sync','#1baf7a',connected()?(S.settings.alertFrom.length?ago:'Add your bank'):'Off',bankCard],
       ['email','Email summaries','#d55181',ems.length?ems.join(', '):'Off',emailCard]]],
@@ -1371,15 +1388,16 @@ bind.settings=()=>{
     document.getElementById('fixedBox').classList.toggle('hidden',e.target.value==='auto');
   }));
   // paycheck & goal save on every change (no Save button)
-  ['sMode','sFreq','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
+  ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
     const day=document.getElementById('sDay').value||todayISO();
     const acct=document.getElementById('sAcct').value.replace(/\D/g,'');
-    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:document.getElementById('sFreq').value,payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
+    Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:document.getElementById('sFreq').value,payDays:[+document.getElementById('sSemi0').value,+document.getElementById('sSemi1').value],payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
       payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim(),
       savingsGoal:+document.getElementById('sGoal').value||0,goalType:document.getElementById('sGType').value});
     S.settingsAt=Date.now();let n=0;
     if(S.settings.payMode==='auto')for(const t of S.tx)if(t.cat!=='Paycheck'&&!S.rules[merchantKey(t.desc)]&&isPayDeposit(t)){t.cat='Paycheck';n++;}
     save();viewIdx=pIndex(todayISO());toast(n?`Saved — found ${n} paycheck${n>1?'s':''}`:'Saved');
+    if(id==='sFreq')render(); // show the right payday fields
   })));
   document.querySelectorAll('[data-aname]').forEach(i=>i.onchange=()=>{S.settings.acctNames=S.settings.acctNames||{};
     if(i.value.trim())S.settings.acctNames[i.dataset.aname]=i.value.trim();else delete S.settings.acctNames[i.dataset.aname];S.settingsAt=Date.now();save();toast('Saved');});
