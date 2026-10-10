@@ -695,7 +695,7 @@ const bind={};
 function home(){
   const cur=pIndex(todayISO());
   // money you can still spend: paycheck minus bills set aside, savings goal, and what you've spent
-  const {p,goal,spendMode,left,isCur,daysLeft}=budgetNumbers(viewIdx);
+  const {p,g,goal,spendMode,left,isCur,daysLeft}=budgetNumbers(viewIdx);
   const over=left<0;
   const setup=!S.settings.payAmount&&S.settings.payMode==='fixed'&&!S.tx.length;
   const recent=S.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)||0).slice(0,5);
@@ -710,7 +710,7 @@ function home(){
     <div class="hero-l">${isCur?(over?'Over budget by':'Left to spend'):(over?'Overspent by':'Was left over')}</div>
     <div class="hero-v ${over?'bad':''}">${$m(Math.abs(left))}</div>
     <div class="hero-sub">${isCur&&!over&&daysLeft>0?`About <b>${$m(left/daysLeft)}</b> a day for ${daysLeft} day${daysLeft===1?'':'s'}`:''}
-      ${over?`<span class="status over">${ICON.alert} Over budget</span>`:(goal&&!spendMode&&isCur?`<span class="status ok">${ICON.check} On track for ${$r(goal)} savings</span>`:'')}</div>
+      ${over?`<span class="status over">${ICON.alert} Over budget</span>`:(goal&&!spendMode&&isCur?`<span class="status ok">${ICON.check} On track for ${goalLabel(g)} savings</span>`:'')}</div>
     ${(()=>{
       // spending money: what you've spent out of what you're allowed to spend this paycheck
       const allow=p.spent+left,used=allow>0?Math.min(100,p.spent/allow*100):100;
@@ -1029,10 +1029,11 @@ function history(){
 function histOverview(){
   const [lo,hi]=periodRange();
   const rows=[];let total=0;
-  for(let i=lo;i<=hi;i++){const p=periodSummary(i);if(!p.txs.length&&!p.income)continue;total+=p.saved;rows.push({...p,total});}
-  const goal=+S.settings.savingsGoal||0;
-  const done=rows.filter(r=>r.i<hi);
-  const hit=done.filter(r=>S.settings.goalType==='spend'?r.spent<=goal:r.saved>=goal).length;
+  // each paycheck is measured against the goal it had at the time
+  for(let i=lo;i<=hi;i++){const p=periodSummary(i);if(!p.txs.length&&!p.income)continue;total+=p.saved;const g=goalFor(i,p);
+    rows.push({...p,total,g,met:g.amount?(g.type==='spend'?p.spent<=g.amount:p.saved>=g.amount):null});}
+  const done=rows.filter(r=>r.i<hi&&r.met!==null),goal=done.length;
+  const hit=done.filter(r=>r.met).length;
   const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.saved)));
   return `<div class="card">
     <div class="hero-l">Total saved</div><div class="hero-v ${total>=0?'':'bad'}">${$m(total)}</div>
@@ -1044,7 +1045,7 @@ function histOverview(){
   </div>
   <div class="card" style="overflow-x:auto">
     <table><thead><tr><th>Paycheck</th><th class="n">In</th><th class="n">Out</th><th class="n">Saved</th></tr></thead>
-    <tbody>${rows.slice().reverse().map(r=>`<tr style="cursor:pointer" data-p="${r.i}"><td>${pretty(r.start)}${r.i===hi?' <span class="badge">now</span>':''}</td><td class="n">${$r(r.income)}</td><td class="n">${$r(r.spent+r.billsTotal)}</td><td class="n ${r.saved>=0?'good':'bad'}">${$m(r.saved)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No history yet.</td></tr>'}</tbody></table>
+    <tbody>${rows.slice().reverse().map(r=>`<tr style="cursor:pointer" data-p="${r.i}"><td>${pretty(r.start)}${r.i===hi?' <span class="badge">now</span>':''}</td><td class="n">${$r(r.income)}</td><td class="n">${$r(r.spent+r.billsTotal)}</td><td class="n ${r.saved>=0?'good':'bad'}">${$m(r.saved)}${r.g.amount?`<div class="tiny ${r.met===false&&r.i<hi?'bad':'muted'}" style="font-family:inherit">${r.g.type==='spend'?'limit':'of'} ${goalLabel(r.g)}${r.met&&r.i<hi?' ✓':''}</div>`:''}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No history yet.</td></tr>'}</tbody></table>
     <p class="tiny muted">Tap a row to open that period.</p>
   </div>`;
 }
@@ -1150,7 +1151,7 @@ function yearView(){
     <div class="chips"><div class="chip"><div class="l">Earned</div><div class="v">${$r(r.earned)}</div></div>
       <div class="chip"><div class="l">Spent</div><div class="v">${$r(r.spent)}</div></div>
       <div class="chip"><div class="l">Recurring</div><div class="v">${$r(r.bills)}</div></div></div>
-    ${goal&&r.full?`<p class="small" style="margin:12px 0 0">${r.hit===r.full?`<span class="status ok">${ICON.check} Every paycheck</span>`:''} You hit your ${S.settings.goalType==='spend'?'spending limit':'savings goal'} on <b>${r.hit} of ${r.full}</b> paychecks.</p>`:''}
+    ${r.full?`<p class="small" style="margin:12px 0 0">${r.hit===r.full?`<span class="status ok">${ICON.check} Every paycheck</span>`:''} You hit your goal on <b>${r.hit} of ${r.full}</b> paychecks.</p>`:''}
   </div>
   <div class="card"><div class="card-h"><h2>Spending by month</h2></div>
     <div class="vchart" style="gap:4px" role="img" aria-label="Spending by month">${r.months.map((v,k)=>`<div class="col" title="${MONTHS[k]}: ${$m(v)}"><span class="vl">${k===top&&v?$r(v):''}</span><i class="b" style="height:${v?Math.max(2,v/mmax*H):0}px;max-width:22px"></i></div>`).join('')}</div>
@@ -1389,8 +1390,8 @@ function payCard(){
     <div class="grid2"><label class="f"><span>Goal type</span><select id="sGType">
       <option value="save" ${s.goalType!=='spend'?'selected':''}>Savings goal</option>
       <option value="spend" ${s.goalType==='spend'?'selected':''}>Spending limit</option></select></label>
-    <label class="f"><span>Per paycheck (0 = none)</span><input id="sGoal" type="number" step="0.01" inputmode="decimal" value="${s.savingsGoal}"></label></div>
-    <p class="tiny muted" style="margin-top:0">Savings goal: save at least this much each paycheck. Spending limit: spend no more than this (recurring purchases don't count toward it).</p>
+    <label class="f"><span>Per paycheck (0 = none)</span><div class="row" style="flex-wrap:nowrap;gap:6px"><input id="sGoal" type="number" step="0.01" min="0" inputmode="decimal" value="${s.savingsGoal}" style="flex:1;min-width:0"><select id="sGUnit" aria-label="Dollars or percent" style="width:auto;padding:11px 8px"><option value="amt" ${s.goalUnit!=='pct'?'selected':''}>$</option><option value="pct" ${s.goalUnit==='pct'?'selected':''}>% of pay</option></select></div></label></div>
+    <p class="tiny muted" style="margin-top:0">Savings goal: save at least this much each paycheck. Spending limit: spend no more than this (recurring purchases don't count toward it).<br>A % goal is worked out from each paycheck. Changes count from this paycheck on; History keeps the goal each past paycheck had.</p>
   </div>`;
 }
 // Settings is a short menu; each row opens its own page
@@ -1409,7 +1410,7 @@ const svgI=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function setPages(){
   const s=S.settings,e=s.email,nLim=Object.keys(s.catLimits||{}).length,names=Object.values(s.acctNames||{});
   const modeTxt={auto:'Auto-detect',fixed:'Fixed',tx:'From deposits'}[s.payMode]||'';
-  const goalTxt=s.savingsGoal?(s.goalType==='spend'?`Spend ≤ ${$r(s.savingsGoal)}`:`Save ${$r(s.savingsGoal)}`):'No goal';
+  const gv=s.goalUnit==='pct'?(+s.savingsGoal)+'%':$r(s.savingsGoal),goalTxt=s.savingsGoal?(s.goalType==='spend'?`Spend ≤ ${gv}`:`Save ${gv}`):'No goal';
   const ems=[e.weekly&&'Weekly',e.payday&&'Payday',e.limits&&'Limits'].filter(Boolean);
   const ago=S.bank.lastSync?(()=>{const m=Math.round((Date.now()/1000-S.bank.lastSync)/60);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':Math.round(m/1440)+' d ago';})():'Not yet';
   return [
@@ -1536,12 +1537,13 @@ bind.settings=()=>{
   on('sFreq',r=>r.addEventListener('input',()=>{const keys=Object.keys(PAY_FREQ),n=keys.length-1;
     r.style.setProperty('--p',r.value/n*100+'%');document.getElementById('freqLbl').textContent=PAY_FREQ[keys[+r.value]];
     document.querySelectorAll('.freq-ticks span').forEach((s,j)=>s.classList.toggle('on',j===+r.value));}));
-  ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
+  ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal','sGUnit'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
     const day=document.getElementById('sDay').value||todayISO();
     const acct=document.getElementById('sAcct').value.replace(/\D/g,'');
     Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:Object.keys(PAY_FREQ)[+document.getElementById('sFreq').value]||'biweekly',payDays:[+document.getElementById('sSemi0').value,+document.getElementById('sSemi1').value],payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
-      payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim(),
-      savingsGoal:+document.getElementById('sGoal').value||0,goalType:document.getElementById('sGType').value});
+      payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim()});
+    // goal changes apply from this paycheck on; earlier paychecks keep the goal they had
+    setGoal(document.getElementById('sGType').value,document.getElementById('sGUnit').value,document.getElementById('sGoal').value);
     S.settingsAt=Date.now();let n=0;
     if(S.settings.payMode==='auto')for(const t of S.tx)if(t.cat!=='Paycheck'&&!S.rules[merchantKey(t.desc)]&&isPayDeposit(t)){t.cat='Paycheck';n++;}
     save();viewIdx=pIndex(todayISO());toast(n?`Saved — found ${n} paycheck${n>1?'s':''}`:'Saved');

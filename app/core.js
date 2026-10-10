@@ -21,6 +21,7 @@ function normalize(s){
   s.recDismissed=s.recDismissed||[];
   s.emailLog=s.emailLog||{};
   s.goals=s.goals||[];
+  s.goalHist=s.goalHist||[]; // [{from: payday, type, unit, value}] oldest first, see setGoal()
   s.balances=s.balances||{}; // from the bank's daily balance emails: {last4: {amount, at:'2026-10-09T06:24'}}
   return s;
 }
@@ -231,6 +232,7 @@ function mergeStates(a,b){ // a = this device, b = saved copy; this device's set
   const [win,lose]=aWins?[a,b]:[b,a];
   out.settings={...lose.settings,...win.settings,acctNames:{...(lose.settings.acctNames||{}),...(win.settings.acctNames||{})}};
   out.settingsAt=Math.max(a.settingsAt,b.settingsAt);
+  out.goalHist=(win.goalHist&&win.goalHist.length?win:lose).goalHist||[]; // goal history travels with the settings
   out.overrides={...b.overrides,...a.overrides};out.rules={...b.rules,...a.rules};
   out.categories=[...new Set([...b.categories,...a.categories])];
   out.deleted=[...new Set([...b.deleted,...a.deleted])];
@@ -316,10 +318,36 @@ function detectRecurring(){
 
 // ---------- the numbers on the Home screen (also used in emails) ----------
 function budgetNumbers(i){
-  const p=periodSummary(i),goal=+S.settings.savingsGoal||0,spendMode=S.settings.goalType==='spend';
+  const p=periodSummary(i),g=goalFor(i,p),goal=g.amount,spendMode=g.type==='spend';
   const left=spendMode&&goal?goal-p.spent:p.income-p.billsTotal-(spendMode?0:goal)-p.spent;
   const isCur=i===pIndex(todayISO()),daysLeft=isCur?dn(p.end)-dn(todayISO())+1:0;
-  return {p,goal,spendMode,left,isCur,daysLeft,perDay:daysLeft>0&&left>0?left/daysLeft:0};
+  return {p,g,goal,spendMode,left,isCur,daysLeft,perDay:daysLeft>0&&left>0?left/daysLeft:0};
+}
+
+// ---------- your goal per paycheck, remembered over time ----------
+// A savings goal or spending limit, as dollars or as a percent of that paycheck. Each change is saved in
+// S.goalHist starting from the paycheck it was made in, so past paychecks keep the goal they had.
+const goalNow=()=>({type:S.settings.goalType==='spend'?'spend':'save',unit:S.settings.goalUnit==='pct'?'pct':'amt',value:+S.settings.savingsGoal||0});
+function goalFor(i,p){
+  const start=pStart(i);let g=null;
+  for(const h of S.goalHist)if(h.from<=start)g=h;
+  g=g||S.goalHist[0]||goalNow();
+  p=p||periodSummary(i);
+  const amount=g.unit==='pct'?Math.round(Math.max(0,p.income)*g.value)/100:g.value;
+  return {type:g.type,unit:g.unit,value:g.value,amount};
+}
+const goalLabel=g=>g.unit==='pct'?`${+g.value}% (${$r(g.amount)})`:$r(g.amount);
+// set the goal from this paycheck on (earlier paychecks keep theirs)
+function setGoal(type,unit,value){
+  const next={type:type==='spend'?'spend':'save',unit:unit==='pct'?'pct':'amt',value:Math.max(0,+value||0)};
+  if(next.unit==='pct')next.value=Math.min(100,next.value);
+  const H=S.goalHist,from=pStart(pIndex(todayISO()));
+  if(!H.length)H.push({from:'0000-01-01',...goalNow()}); // what it was before goals were remembered
+  const last=H[H.length-1];
+  if(last.type!==next.type||last.unit!==next.unit||last.value!==next.value){
+    if(last.from===from&&H.length>1)Object.assign(last,next);else H.push({from,...next});
+  }
+  Object.assign(S.settings,{goalType:next.type,goalUnit:next.unit,savingsGoal:next.value});
 }
 
 
@@ -375,13 +403,14 @@ function yearsWithData(){
 function yearReview(y){
   // money totals come from the pay periods that started that year
   let earned=0,spent=0,bills=0,saved=0,hit=0,full=0;const byCat={};
-  const goal=+S.settings.savingsGoal||0,cur=pIndex(todayISO());
+  const cur=pIndex(todayISO());let goals=0;
   const [lo,hi]=periodRange();
   for(let i=lo;i<=hi;i++){
     const p=periodSummary(i);if(!p.start.startsWith(y)||!(p.txs.length||p.income))continue;
     earned+=p.income;spent+=p.spent;bills+=p.billsTotal;saved+=p.saved;
     for(const [c,v] of Object.entries(p.byCat))byCat[c]=(byCat[c]||0)+v;
-    if(i<cur){full++;if(S.settings.goalType==='spend'?p.spent<=goal:p.saved>=goal)hit++;}
+    const g=goalFor(i,p);
+    if(i<cur&&g.amount){full++;goals++;if(g.type==='spend'?p.spent<=g.amount:p.saved>=g.amount)hit++;}
   }
   if(bills)byCat['Recurring']=(byCat['Recurring']||0)+bills;
   // store and month details come from the purchases themselves
