@@ -36,7 +36,7 @@ const API = {
   sendTestEmail: (...a) => sendTestEmail_(...a),
   // Settings → Bank sync → Test an alert: shows what the reader gets from a pasted alert (nothing is saved)
   testAlert: (subject, body) => parseAlert(String(subject || '').slice(0, 300), String(body || '').slice(0, 5000),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'), payWords_()),
 };
 function doPost(e) {
   let out;
@@ -92,19 +92,32 @@ function getAlertTransactions_(sinceMs, senders) {
   const from = (Array.isArray(senders) ? senders : [])
     .map(s => String(s).trim().toLowerCase()).filter(s => /^[a-z0-9@._+-]{3,100}$/.test(s)).slice(0, 20);
   if (!from.length) return { transactions: [], unread: [] };
-  const threads = GmailApp.search('from:(' + from.join(' OR ') + ') ' + ALERT_SUBJECTS + ' after:' + since, 0, 300);
-  const transactions = [], unread = [];
-  for (const thread of threads) {
+  const SENDER_Q = 'from:(' + from.join(' OR ') + ')';
+  const threads = GmailApp.search(SENDER_Q + ' ' + ALERT_SUBJECTS + ' after:' + since, 0, 300);
+  // also find paycheck emails with unusual subjects: anything from the bank that mentions your words
+  const words = payWords_();
+  const more = words.length ? GmailApp.search(SENDER_Q + ' (' + words.map(w => '"' + w + '"').join(' OR ') + ') after:' + since, 0, 100) : [];
+  const transactions = [], unread = [], seen = {};
+  for (const thread of threads.concat(more)) {
     for (const m of thread.getMessages()) {
-      if (m.getDate().getTime() / 1000 < since) continue;
+      if (m.getDate().getTime() / 1000 < since || seen[m.getId()]) continue;
+      seen[m.getId()] = 1;
       const subject = m.getSubject(), body = m.getPlainBody() || '';
       const emailDate = Utilities.formatDate(m.getDate(), tz, 'yyyy-MM-dd');
-      const t = parseAlert(subject, body, emailDate);
+      const t = parseAlert(subject, body, emailDate, words);
       if (t) transactions.push(Object.assign({ id: m.getId() }, t));
       else unread.push({ date: emailDate, subject: subject, snippet: body.replace(/\s+/g, ' ').slice(0, 300) });
     }
   }
   return { transactions: transactions, unread: unread.slice(0, 20), balances: getBalances_() };
+}
+
+// Your paycheck words (Settings → Paycheck & goal, comma-separated) plus your employer word, from your saved settings
+function payWords_() {
+  let s = {};
+  try { const st = loadState_(); if (st.data) s = JSON.parse(st.data).settings || {}; } catch (e) { /* no data yet */ }
+  return String(s.payWords || '').split(',').concat(s.payKey || '')
+    .map(w => w.trim().toLowerCase()).filter(w => /^[a-z0-9 .&'-]{3,40}$/.test(w)).slice(0, 10);
 }
 
 // e.g. "Account ending in: *1234 … Available balance as of 06:24 AM on 10/09/2026: $100.00"
@@ -169,7 +182,8 @@ function saveState_(json, baseVersion) {
 }
 
 // Pull amount, direction and description out of one alert email.
-function parseAlert(subject, body, emailDate) {
+// payWords = extra words that mean "money in" (yours from Settings + your employer word), lower case.
+function parseAlert(subject, body, emailDate, payWords) {
   // only the alert itself, not the legal footer (footers often mention phone numbers and "at <bank>")
   body = body.split(/View transaction details|Get help & support|Service Email:/i)[0];
   const text = (subject + '\n' + body).replace(/ /g, ' ');
@@ -180,7 +194,9 @@ function parseAlert(subject, body, emailDate) {
 
   // "Early Pay" = a direct deposit some banks release up to 2 days early ("Hooray! Early Pay is here!")
   const IN = /deposit|credit(?!\s*card)|received|refund|early pay|payroll|paycheck|direct dep/i, OUT = /withdraw|debit|purchase|payment|spent|charge|transaction/i;
-  let type = IN.test(subject) ? 'income' : OUT.test(subject) ? 'expense' : IN.test(body) ? 'income' : OUT.test(body) ? 'expense' : null;
+  // a purchase subject wins over your words (so a card purchase AT your employer stays a purchase)
+  const yours = (payWords || []).some(w => text.toLowerCase().includes(w));
+  let type = IN.test(subject) ? 'income' : OUT.test(subject) ? 'expense' : yours ? 'income' : IN.test(body) ? 'income' : OUT.test(body) ? 'expense' : null;
   if (!type) return null;
 
   let desc = '';

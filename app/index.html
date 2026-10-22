@@ -1383,7 +1383,8 @@ function payCard(){
       <label class="f"><span>Account your paycheck goes into (last 4 digits)</span><input id="sAcct" inputmode="numeric" maxlength="4" placeholder="e.g. 5678" value="${esc(s.payAcct)}"></label>
       <div class="grid2"><label class="f"><span>Smallest paycheck</span><input id="sMin" type="number" step="1" inputmode="decimal" value="${s.payMin}"></label>
       <label class="f"><span>Employer word (optional)</span><input id="sKey" placeholder="e.g. ACME" value="${esc(s.payKey)}"></label></div>
-      <p class="tiny muted" style="margin-top:0">Each period runs from one real payday to the next. You can also set any deposit's category to Paycheck yourself.</p>
+      <label class="f"><span>What your bank calls a paycheck (optional)</span><input id="sWords" placeholder="e.g. Early Pay, Direct Deposit" autocomplete="off" value="${esc(s.payWords||'')}"></label>
+      <p class="tiny muted" style="margin-top:0">Separate words with commas. Stub also finds any bank email that mentions your employer word, and already knows Deposit, Direct Deposit, Payroll and Early Pay. Each period runs from one real payday to the next. You can also set any deposit's category to Paycheck yourself.</p>
     </div>
     <div id="fixedBox" class="${s.payMode==='auto'?'hidden':''}">
       <label class="f"><span>Take-home pay</span><input id="sPay" type="number" step="0.01" inputmode="decimal" value="${s.payAmount}"></label></div>
@@ -1537,11 +1538,11 @@ bind.settings=()=>{
   on('sFreq',r=>r.addEventListener('input',()=>{const keys=Object.keys(PAY_FREQ),n=keys.length-1;
     r.style.setProperty('--p',r.value/n*100+'%');document.getElementById('freqLbl').textContent=PAY_FREQ[keys[+r.value]];
     document.querySelectorAll('.freq-ticks span').forEach((s,j)=>s.classList.toggle('on',j===+r.value));}));
-  ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal','sGUnit'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
+  ['sMode','sFreq','sSemi0','sSemi1','sAcct','sMin','sKey','sPay','sDay','sGType','sGoal','sGUnit','sWords'].forEach(id=>on(id,el=>el.addEventListener('change',()=>{
     const day=document.getElementById('sDay').value||todayISO();
     const acct=document.getElementById('sAcct').value.replace(/\D/g,'');
     Object.assign(S.settings,{payMode:document.getElementById('sMode').value,payFreq:Object.keys(PAY_FREQ)[+document.getElementById('sFreq').value]||'biweekly',payDays:[+document.getElementById('sSemi0').value,+document.getElementById('sSemi1').value],payAmount:+document.getElementById('sPay').value||0,firstPayday:day,
-      payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim()});
+      payAcct:acct,payMin:+document.getElementById('sMin').value||0,payKey:document.getElementById('sKey').value.trim(),payWords:document.getElementById('sWords').value.trim().slice(0,200)});
     // goal changes apply from this paycheck on; earlier paychecks keep the goal they had
     setGoal(document.getElementById('sGType').value,document.getElementById('sGUnit').value,document.getElementById('sGoal').value);
     S.settingsAt=Date.now();let n=0;
