@@ -11,7 +11,7 @@ const APP_URL = 'https://picovrfbt.github.io/Stub/';
 
 // Which emails count as transaction alerts (the senders are chosen in the app: Settings → Bank sync).
 // Security emails (verify, login, statements, settings changes) are left out.
-const ALERT_SUBJECTS = 'subject:(transaction OR transfer OR received OR approved OR withdrawal OR deposit OR purchase OR debit OR credit OR payment OR alert) -subject:(verify OR verification OR login OR "sign in" OR statement OR preference OR password)';
+const ALERT_SUBJECTS = 'subject:(transaction OR transfer OR received OR approved OR withdrawal OR deposit OR purchase OR debit OR credit OR payment OR alert OR payroll OR paycheck OR "early pay" OR "direct deposit") -subject:(verify OR verification OR login OR "sign in" OR statement OR preference OR password)';
 
 // Daily balance emails aren't read in this version.
 const BALANCE_SEARCH = '';
@@ -178,7 +178,8 @@ function parseAlert(subject, body, emailDate) {
   const amount = parseFloat(amt[1].replace(/,/g, ''));
   if (!amount) return null;
 
-  const IN = /deposit|credit(?!\s*card)|received|refund/i, OUT = /withdraw|debit|purchase|payment|spent|charge|transaction/i;
+  // "Early Pay" = a direct deposit some banks release up to 2 days early ("Hooray! Early Pay is here!")
+  const IN = /deposit|credit(?!\s*card)|received|refund|early pay|payroll|paycheck|direct dep/i, OUT = /withdraw|debit|purchase|payment|spent|charge|transaction/i;
   let type = IN.test(subject) ? 'income' : OUT.test(subject) ? 'expense' : IN.test(body) ? 'income' : OUT.test(body) ? 'expense' : null;
   if (!type) return null;
 
